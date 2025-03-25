@@ -3,14 +3,13 @@ if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
 
-//calls
+// Calls
 const express = require('express');
 const twilio = require('twilio');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { storage } = require('./firebase'); // 🔹 Import Firebase Storage
-const { ref, uploadBytes, getDownloadURL } = require("firebase/storage");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -62,24 +61,32 @@ app.post('/fetch-recording', async (req, res, next) => {
         writer.on('finish', async () => {
             console.log(`✅ Recording saved as: ${tempFilePath}`);
 
-            // 🟠 Upload to Firebase Storage
-            const storageRef = ref(storage, `recordings/${recordingSid}.mp3`);
-            const fileBuffer = fs.readFileSync(tempFilePath);
-            await uploadBytes(storageRef, fileBuffer);
+            try {
+                // 🟠 Upload to Firebase Storage using storage.upload()
+                const destination = `recordings/${recordingSid}.mp3`;
+                await storage.upload(tempFilePath, {
+                    destination: destination,
+                    metadata: { contentType: "audio/mpeg" }
+                });
 
-            // 🌍 Get Public URL
-            const publicUrl = await getDownloadURL(storageRef);
-            console.log("✅ Public URL:", publicUrl);
+                // 🌍 Get Public URL
+                const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${storage.name}/o/${encodeURIComponent(destination)}?alt=media`;
+                console.log("✅ Public URL:", publicUrl);
 
-            // 🗑 Delete temp file
-            fs.unlinkSync(tempFilePath);
+                // 🗑 Delete temp file
+                fs.unlinkSync(tempFilePath);
 
-            // 🔹 Return Public URL to Twilio
-            res.json({
-                message: "Recording uploaded successfully",
-                recordingSid: recordingSid,
-                firebaseUrl: publicUrl
-            });
+                // 🔹 Return Public URL to Twilio
+                res.json({
+                    message: "Recording uploaded successfully",
+                    recordingSid: recordingSid,
+                    firebaseUrl: publicUrl
+                });
+
+            } catch (uploadError) {
+                console.error("❌ Error uploading file to Firebase:", uploadError);
+                next(uploadError);
+            }
         });
 
         writer.on('error', (err) => {
