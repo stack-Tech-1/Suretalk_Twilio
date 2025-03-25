@@ -6,7 +6,7 @@ console.log("Service Account:", serviceAccount);
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    storageBucket: "suretalkdb.appspot.com" // 🔹 Use ".appspot.com" instead
+    storageBucket: "gs://suretalkdb.firebasestorage.app" // 🔹 Use ".appspot.com" instead
 
 });
 
